@@ -1,0 +1,8 @@
+  SteamBooster helps you login to Steam fast if you are constantly 
+moving between computers. It does this by skipping the user/password window. 
+As Steam users know you can't login on more than one system at a time without 
+having the password cleared out of memory. This script also lets multiple user's
+login to different accounts with a click of a button. The one click user change
+will close all games and logout of one user and login as another. Give it a
+try all you need is Steam, this script, Python 3, and MS-Windows or GNU/Linux
+have fun and game on.
