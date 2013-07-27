@@ -12,9 +12,11 @@
 
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
+
+    To update SteamBoost See <https://github.com/linuts/SteamBooster>
 """
 
-from tkinter import Tk, Frame, Entry, Button, Label, TOP, BOTTOM, LEFT, FALSE
+from tkinter import *
 from re import findall as re_findall
 from os import system as os_system
 from subprocess import Popen
@@ -22,22 +24,16 @@ from platform import system
 from time import sleep
 
 class SteamDataReader():
-    '''Reads ACF and VDF Steam config files. Use self call to get data.'''
+    '''Reads ACF and VDF Steam config files.'''
 
-    def __init__(self, filename):
+    def __init__(self):
         ''''''
-        self.__filename = filename
+        self.__steampath = "C:/Program Files (x86)/Steam" # fix for other os types
 
-    def __call__(self):
-        ''''''
-        data = self.__read_in_file()
-        profile = self.__make_profile(data)
-        return self.__make_nodes(profile, self.__purge_nondata(data))
-
-    def __read_in_file(self):
+    def __read_in_file(self, filepath):
         ''''''
         data = []
-        with open(self.__filename, 'r') as file:
+        with open(filepath, 'r') as file:
             for line in file:
                 line = line.replace('\n', '')
                 line = line.replace("\t\t", ' ')
@@ -54,7 +50,7 @@ class SteamDataReader():
                     if len(newline) == 1:
                         data += newline
                     else:
-                        data += [{newline[0]:newline[1:]}]
+                        data += [{newline[0]:newline[1]}]
         return data
 
     def __make_profile(self, data):
@@ -85,17 +81,36 @@ class SteamDataReader():
         data = list(reversed(data))
         profile = list(reversed(profile))
         maxdepth = max(profile)
-        holder = []
+        holder = dict()
         newdata = dict()
         for index in range(len(data)):
             if profile[index] == maxdepth - 1 and type(data[index]) == str:
-                newdata[data[index]] = holder
-                holder = []
+                newdata[data[index]] = dict()
+                newdata[data[index]].update(holder)
+                holder.clear()
             elif profile[index] == maxdepth - 1 and type(data[index]) == dict:
                 newdata.update(data[index])
-            else:
-                holder.append(data[index])
+            elif not type(data[index]) == str:
+                holder.update(data[index])
         return newdata
+
+    def __base_call(self, filepath):
+        ''''''
+        data = self.__read_in_file(filepath)
+        profile = self.__make_profile(data)
+        return self.__make_nodes(profile, self.__purge_nondata(data))
+
+    @property
+    def user_nodes(self):
+        ''''''
+        return self.__base_call(self.__steampath + "/config/loginusers.vdf")
+
+    @property
+    def game_nodes(self):
+        ''''''
+        pass
+        #for game in games add to base call
+        #self.__base_call("")
 
 class UserData():
     ''''''
@@ -104,13 +119,14 @@ class UserData():
         ''''''
         self.__filename = __file__.split('\\')[-1]
         self.__header = "#Live SteamBoost data do not edit!:"
+        steam = SteamDataReader()
+        self.__steamusers = steam.user_nodes
 
     def __to_string(self, users):
         ''''''
         stringr = ""
         for part in users:
             stringr += "{0}/{1}|".format(part[0], part[1])
-
         return stringr[:-1]
 
     def __to_list(self, users):
@@ -119,8 +135,14 @@ class UserData():
         for part in users.split('|'):
             if len(part) > 0:
                 listr += [part.split('/')]
-
         return listr
+
+    def ids_to_names(self, userids):
+        ''''''
+        users = []
+        for userid in userids:
+            users.append([self.__steamusers[userid[0]]["accountname"], userid[1]])
+        return users
 
     def __encrypt_data(self, users):
         ''''''
@@ -136,8 +158,23 @@ class UserData():
             for line in file.readlines():
                 if self.__header in line and not "header" in line:
                     strlist = self.__decrypt_data(line[len(self.__header)+1:])
-                    print(strlist)
                     return self.__to_list(strlist)
+
+    def users_changed(self):
+        ''''''
+        userid = []
+        for user in self.read_in_users():
+            userid += [user[0]]
+        steamid = list(self.__steamusers.keys())
+        if len(userid) == len(steamid):
+            allin = 0
+            for user in steamid:
+                if steamid == userid:
+                    allin += 1
+            if allin == len(steamid):
+                return False
+        else:
+            return True
 
     def write_out_users(self, users):
         ''''''
@@ -149,64 +186,65 @@ class UserData():
                 else:
                     code += '{0} '.format(self.__header)
                     break
-
         with open(self.__filename, 'w') as file:
             file.write(code + self.__encrypt_data(self.__to_string(users)))
 
-class GUIFirstRun(Tk): # fix private var use
+class GUISetup(Tk):
     ''''''
 
-    def __init__(self):
+    def __init__(self, known_users):
         ''''''
         super().__init__()
         self.title("SteamBoost user setup")
+        note = "Leave the password box empty to skip a user."
+        self.__header = Label(self, bg="lightblue", text=note)
         self.resizable(width=FALSE, height=FALSE)
-        self.user_frames = []
-        self.user_names = []
-        self.user_passwords = []
-        self.__add_click()
-        self.__button_menu()
+        self.__new_user_frames = []
+        self.__known_users = known_users
+        self.__new_users = []
+        self.__base_window()
         super().mainloop()
 
-    def __save_users(self, users):
+    def __base_window(self):
         ''''''
-        if len(users) > 0:
-            data = UserData()
-            data.write_out_users(users)
+        self.__header.pack(padx=10, pady=10, side=TOP)
+        steam = SteamDataReader()
+        steam_users = steam.user_nodes
+        for user in list(steam_users.keys()):
+            self.__add_user_frame(user, steam_users[user]["accountname"])
+        btn = Button(self, text="Done", bg="lightgray", command=self.__save_users)
+        btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
-    def __button_menu(self):
+    def __add_user_frame(self, userid, username):
         ''''''
-        holder = Frame(self)
-        addbtn = Button(holder, text="Add more users", width=21, command=self.__add_click)
-        donebtn = Button(holder, text="Done", width=21, command=self.__done_click)
-        addbtn.pack(side=LEFT)
-        donebtn.pack(side=LEFT)
-        holder.pack(side=BOTTOM)
+        oldindex = -1
+        count = 0
+        for old_user in self.__known_users:
+            if userid == old_user[0]:
+                oldindex = count
+                break
+            else:
+                count += 1
+        if oldindex == -1:
+            holder = LabelFrame(self, text="{0}'s password".format(username))
+            self.__new_users.append([userid, Entry(holder, width=35, show='*')])
+            self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
+            holder.pack(padx=10, pady=5)
+        else:
+            self.__new_users.append(self.__known_users[oldindex])
 
-    def __add_click(self):
+    def __save_users(self):
         ''''''
-        if  len(self.user_frames) < 10:
-            self.user_frames += [Frame(self, pady=5, padx=5)]
-            usernote = Label(self.user_frames[-1], text="Username: ")
-            self.user_names += [Entry(self.user_frames[-1], width=15)]
-            passnote = Label(self.user_frames[-1], text="Password: ")
-            self.user_passwords += [Entry(self.user_frames[-1], width=15, show='*')]
-            usernote.pack(side=LEFT)
-            self.user_names[-1].pack(side=LEFT)
-            passnote.pack(side=LEFT)
-            self.user_passwords[-1].pack(side=LEFT)
-            self.user_frames[-1].pack(side=TOP)
-
-    def __done_click(self):
-        ''''''
-        users = []
-        for index in range(len(self.user_frames)):
-            user = self.user_names[index].get()
-            password = self.user_passwords[index].get()
-            if len(user) > 0 and len(password) > 0:
-                users += [(user, password)]
-
-        self.__save_users(users)
+        out = []
+        for user in self.__new_users:
+            if type(user[1]) == str:
+                out.append([user[0], user[1]])
+            elif len(user[1].get()) > 0:
+                out.append([user[0], user[1].get()])
+            else:
+                out.append([user[0], "[NULL]"])
+        data = UserData()
+        data.write_out_users(out)
         self.quit()
 
 class GUIGameMenu(Tk):
@@ -239,19 +277,21 @@ class GUILogin(Tk):
 
     def mainloop(self):
         '''
-        If not running windows send an error to the user. - temp
         If only one user is in the list auto login as that user.
         If more than one user is in the list show the GUI list.
         '''
-
         self.title("Login")
+        userslen = len(self.users)
+        passcount = 0
+        for user in self.users:
+            if not user[1] == "[NULL]":
+                passcount += 1
         if len(self.users) == 0:
             exit() # Change to quit() for later call of GUIGameMenu(login.username)
-        elif len(self.users) == 1:
+        elif len(self.users) == 1 or passcount == 1:
             self.__run_steam(0)
         else:
             self.__make_buttons()
-
         super().mainloop()
 
     def __make_buttons(self):
@@ -259,11 +299,11 @@ class GUILogin(Tk):
         self.users.sort()
         count = -1
         for user in self.users:
-            count += 1
-            button = Button(self, text=user[0], # Need to make work with Linux & Apple
-                command=lambda index=count: self.__run_steam(index))
-            button.pack(side=LEFT)
-
+            if not user[1] == "[NULL]":
+                count += 1
+                button = Button(self, text=user[0], # Need to make work with Linux & Apple
+                    command=lambda index=count: self.__run_steam(index))
+                button.pack(side=LEFT)
         self.resizable(width=FALSE, height=FALSE)
 
     def __run_steam(self, count):
@@ -302,15 +342,14 @@ class GUILogin(Tk):
 
 if __name__ == '__main__':
     data = UserData()
-    users = data.read_in_users()
-    if len(users) == 0:
-        run = GUIFirstRun()
+    if data.users_changed():
+        GUISetup(data.read_in_users())
     else:
         login = GUILogin()
-        login.users = users
+        login.users = data.ids_to_names(data.read_in_users())
         login.mainloop()
-        #if not login.username == '':   # place holder
-        #   GUIGameMenu(login.username) # place holder
+##        if not login.username == '':   # place holder
+##           GUIGameMenu(login.username) # place holder
 
 #The next line holds data it's not a comment do not edit or move the text!!!
 #Live SteamBoost data do not edit!:
