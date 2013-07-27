@@ -7,18 +7,95 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
 """
 
 from tkinter import Tk, Frame, Entry, Button, Label, TOP, BOTTOM, LEFT, FALSE
-from subprocess import Popen
+from re import findall as re_findall
 from os import system as os_system
+from subprocess import Popen
 from platform import system
 from time import sleep
+
+class SteamDataReader():
+    '''Reads ACF and VDF Steam config files. Use self call to get data.'''
+
+    def __init__(self, filename):
+        ''''''
+        self.__filename = filename
+
+    def __call__(self):
+        ''''''
+        data = self.__read_in_file()
+        profile = self.__make_profile(data)
+        return self.__make_nodes(profile, self.__purge_nondata(data))
+
+    def __read_in_file(self):
+        ''''''
+        data = []
+        with open(self.__filename, 'r') as file:
+            for line in file:
+                line = line.replace('\n', '')
+                line = line.replace("\t\t", ' ')
+                line = line.replace('\t', '')
+                line = line.replace('\\','/') # to fix windows file locations
+                line = line.strip()
+                if line in ['{', '}']:
+                    data += [line]
+                else:
+                    line = re_findall('\"[^\"\r]*\"', line)
+                    newline = []
+                    for part in line:
+                        newline += [part[1:-1]]
+                    if len(newline) == 1:
+                        data += newline
+                    else:
+                        data += [{newline[0]:newline[1:]}]
+        return data
+
+    def __make_profile(self, data):
+        ''''''
+        depth = []
+        level = 0
+        for item in data:
+            if item == '{':
+                level += 1
+            elif item == '}':
+                level -= 1
+            else:
+                depth += [level]
+        return depth
+
+    def __purge_nondata(self, data):
+        ''''''
+        cleandata = []
+        for part in data:
+            if part in ['{', '}']:
+                continue
+            else:
+                cleandata += [part]
+        return cleandata
+
+    def __make_nodes(self, profile, data):
+        ''''''
+        data = list(reversed(data))
+        profile = list(reversed(profile))
+        maxdepth = max(profile)
+        holder = []
+        newdata = dict()
+        for index in range(len(data)):
+            if profile[index] == maxdepth - 1 and type(data[index]) == str:
+                newdata[data[index]] = holder
+                holder = []
+            elif profile[index] == maxdepth - 1 and type(data[index]) == dict:
+                newdata.update(data[index])
+            else:
+                holder.append(data[index])
+        return newdata
 
 class UserData():
     ''''''
@@ -76,7 +153,7 @@ class UserData():
         with open(self.__filename, 'w') as file:
             file.write(code + self.__encrypt_data(self.__to_string(users)))
 
-class GUIFirstRun(Tk):
+class GUIFirstRun(Tk): # fix private var use
     ''''''
 
     def __init__(self):
