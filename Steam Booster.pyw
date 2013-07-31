@@ -236,6 +236,7 @@ class UserData():
                     strlist = self.__decrypt_data(line[len(self.header)+1:])
                     return self.__to_list(strlist)
             return []
+
     def write_out_users(self, users):
         """Save user data to this file."""
         code = ""
@@ -393,4 +394,4 @@ if __name__ == '__main__':
         login.mainloop()
 
 #The next line holds data. It's not a comment don't move the text!!!
-#Live SteamBoost data do not edit!:
+#Live data do not edit!:
