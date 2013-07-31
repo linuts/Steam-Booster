@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
 
-    To update SteamBoost See <https://github.com/linuts/SteamBooster>
+    See project home page at: <https://github.com/linuts/SteamBooster>
 '''
 
 from tkinter import *
@@ -24,15 +24,28 @@ from subprocess import Popen
 from platform import system
 from time import sleep
 
+class UpdateScript():
+    """Try to update this script using github.com"""
+
+    def __init__(self):
+        """null"""
+        pass # place holder
+
 class SteamData():
     """Reads .ACF and .VDF Steam config files."""
 
     def __init__(self):
-        """"""
+        """Find Steam install path."""
         self.__steampath = "C:/Program Files (x86)/Steam" # fix for os other then windows
 
+    def __call__(self, filepath):
+        """Returns the Steam data nodes."""
+        data = self.__read_in_file(self.__steampath + filepath)
+        profile = self.__make_profile(data)
+        return self.__make_nodes(profile, self.__purge_nondata(data))
+
     def __read_in_file(self, filepath):
-        """"""
+        """Read the raw file into a list."""
         data = []
         with open(filepath, 'r') as file:
             for line in file:
@@ -55,7 +68,10 @@ class SteamData():
         return data
 
     def __make_profile(self, data):
-        """"""
+        """
+        Makes a list of item depth from left to right.
+        This is used in make_nodes to help re create the nodes.
+        """
         depth = []
         level = 0
         for item in data:
@@ -68,7 +84,10 @@ class SteamData():
         return depth
 
     def __purge_nondata(self, data):
-        """"""
+        """
+        Remove the '{' and '}' chars.
+        After make_profile these are not needed and just get in the way.
+        """
         cleandata = []
         for part in data:
             if part in ['{', '}']:
@@ -78,7 +97,7 @@ class SteamData():
         return cleandata
 
     def __make_nodes(self, profile, data):
-        """"""
+        """Turns the raw data list into nested dictionary nodes."""
         data = list(reversed(data))
         profile = list(reversed(profile))
         maxdepth = max(profile)
@@ -95,62 +114,41 @@ class SteamData():
                 holder.update(data[index])
         return newdata
 
-    def __call__(self, filepath):
-        """"""
-        data = self.__read_in_file(self.__steampath + filepath)
-        profile = self.__make_profile(data)
-        return self.__make_nodes(profile, self.__purge_nondata(data))
-
 class UserData():
-    """"""
+    """Reads and writes user data from this file."""
 
     def __init__(self):
-        """"""
+        """Translate Steam userid to username."""
         self.__filename = __file__.split('\\')[-1]
         self.__header = "#Live SteamBoost data do not edit!:"
         steam = SteamData()
         self.__steamusers = steam("/config/loginusers.vdf")
 
     def __to_string(self, users):
-        """"""
+        """Turn user list into a string."""
         stringr = ""
         for part in users:
             stringr += "{0}/{1}|".format(part[0], part[1])
         return stringr[:-1]
 
     def __to_list(self, users):
-        """"""
+        """Turn a user string into a list."""
         listr = []
         for part in users.split('|'):
             if len(part) > 0:
                 listr += [part.split('/')]
         return listr
 
-    def ids_to_names(self, userids):
-        """"""
-        users = []
-        for userid in userids:
-            users.append([self.__steamusers[userid[0]]["accountname"], userid[1]])
-        return users
-
     def __encrypt_data(self, users):
-        """"""
+        """Encrypt the data in this file."""
         return users # place holder
 
     def __decrypt_data(self, users):
-        """"""
+        """Decrypt the data in this file."""
         return users # place holder
 
-    def read_in_users(self):
-        """"""
-        with open(self.__filename, 'r') as file:
-            for line in file.readlines():
-                if self.__header in line and not "header" in line:
-                    strlist = self.__decrypt_data(line[len(self.__header)+1:])
-                    return self.__to_list(strlist)
-
     def users_changed(self):
-        """"""
+        """See if new users have logged into Steam."""
         userid = []
         for user in self.read_in_users():
             userid += [user[0]]
@@ -165,8 +163,23 @@ class UserData():
         else:
             return True
 
+    def ids_to_names(self, userids):
+        """Turn userids into user names."""
+        users = []
+        for userid in userids:
+            users.append([self.__steamusers[userid[0]]["accountname"], userid[1]])
+        return users
+
+    def read_in_users(self):
+        """Read this file to get user data."""
+        with open(self.__filename, 'r') as file:
+            for line in file.readlines():
+                if self.__header in line and not "header" in line:
+                    strlist = self.__decrypt_data(line[len(self.__header)+1:])
+                    return self.__to_list(strlist)
+
     def write_out_users(self, users):
-        """"""
+        """Save user data to this file."""
         code = ""
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
@@ -179,10 +192,10 @@ class UserData():
             file.write(code + self.__encrypt_data(self.__to_string(users)))
 
 class GUISetup(Tk):
-    """"""
+    """Create and add users for userdata"""
 
     def __init__(self, known_users):
-        """"""
+        """Setup and run GUIsetup"""
         super().__init__()
         self.title("SteamBoost user setup")
         note = "Leave the password box empty to skip a user."
@@ -195,7 +208,7 @@ class GUISetup(Tk):
         super().mainloop()
 
     def __base_window(self):
-        """"""
+        """Create the GUI window frame."""
         self.__header.pack(padx=10, pady=10, side=TOP)
         steam = SteamData()
         steam_users = steam("/config/loginusers.vdf")
@@ -205,7 +218,7 @@ class GUISetup(Tk):
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
     def __add_user_frame(self, userid, username):
-        """"""
+        """Add a New user frame."""
         oldindex = -1
         count = 0
         for old_user in self.__known_users:
@@ -223,7 +236,7 @@ class GUISetup(Tk):
             self.__new_users.append(self.__known_users[oldindex])
 
     def __save_users(self):
-        """"""
+        """Save new user data to this file."""
         out = []
         for user in self.__new_users:
             if type(user[1]) == str:
@@ -237,7 +250,7 @@ class GUISetup(Tk):
         self.quit()
 
 class GUILogin(Tk):
-    """"""
+    """Try to login as a Steam user."""
 
     def __init__(self):
         """Create users list."""
@@ -299,18 +312,20 @@ class GUILogin(Tk):
             pass # place holder
 
         def select_os():
+            """Detect os and start steam"""
             if system() == "Windows":
                 windows()
             elif system() == "Linux":
                 linux()
             elif system() == "Apple":
                 apple()
+            self.quit()
 
         Thread(target=select_os).start()
         self.withdraw()
-        self.quit()
 
 if __name__ == '__main__':
+    #UpdateScript() # place holder
     data = UserData()
     if data.users_changed():
         GUISetup(data.read_in_users())
@@ -320,4 +335,4 @@ if __name__ == '__main__':
         login.mainloop()
 
 #The next line holds data it's not a comment do not edit or move the text!!!
-#Live SteamBoost data do not edit!: 
+#Live SteamBoost data do not edit!:
