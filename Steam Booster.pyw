@@ -18,6 +18,7 @@
 
 from tkinter import *
 from re import findall as re_findall
+from urllib.request import urlopen
 from os import system as os_system
 from threading import Thread
 from subprocess import Popen
@@ -25,11 +26,65 @@ from platform import system
 from time import sleep
 
 class UpdateScript():
-    """Try to update this script using github.com"""
+    """
+    Try to update this script using "github.com".
+    NO DATA IS SENT TO THE SERVER TO DO THIS...
+    """
 
-    def __init__(self):
-        """null"""
-        pass # place holder
+    def __init__(self, branch="master"):
+        """Start a new update thread."""
+        self.__branch = branch
+        if not self.__branch == None:
+            Thread(target=self.__try_update).start()
+
+    def __try_update(self):
+        """Try to update this Script."""
+        try:
+            lanfile = []
+            wanfile = []
+            url = "https://raw.github.com/linuts/SteamBooster/{0}/Steam%20Booster.pyw"
+            lanfile = self.__get_this_file(__file__.split('\\')[-1])
+            wanfile = self.__get_web_file(url.format(self.__branch))
+            if self.__needs_update(lanfile, wanfile):
+                self.__do_update(wanfile)
+        except Exception:
+            pass
+
+    def __get_this_file(self, file):
+        """Load this script as a list of lines."""
+        with open(file, 'r') as file:
+            return file.readlines()
+
+    def __get_web_file(self, url):
+        """Load github SteamBoster script as a list of lines."""
+        with urlopen(url.format(self.__branch)) as file:
+            webfile = file.readlines()
+        data = []
+        for line in webfile:
+                data.append(str(line, encoding="utf8"))
+        return data
+
+    def __needs_update(self, lan, wan):
+        """Check if update is available on github."""
+        if len(lan) == len(wan):
+            for index in range(len(wan)):
+                if not lan[index] == wan[index]:
+                    return True
+            return False
+        else:
+            return True
+
+    def __do_update(self, wan):
+        """
+        Replace this script with the new one.
+        Restore the user data after.
+        """
+        data = UserData()
+        savedata = data.read_in_users()
+        with open(__file__.split('\\')[-1], 'w') as file:
+            for line in wan:
+                file.write(line)
+        data.write_out_users(savedata)
 
 class SteamData():
     """Reads .ACF and .VDF Steam config files."""
@@ -325,7 +380,7 @@ class GUILogin(Tk):
         self.withdraw()
 
 if __name__ == '__main__':
-    #UpdateScript() # place holder
+    UpdateScript() # set arg one to None to stop updates.
     data = UserData()
     if data.users_changed():
         GUISetup(data.read_in_users())
