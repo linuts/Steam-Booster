@@ -48,7 +48,7 @@ class UpdateScript(): # <= This class wipes all changes made to the script!!!
             wanfile = self.__get_web_file(url.format(self.__branch))
             if self.__needs_update(lanfile, wanfile):
                 self.__do_update(wanfile)
-        except Exception(): # Need to fix this.
+        except Exception: # Need to fix this.
             pass
 
     def __get_this_file(self, file):
@@ -230,21 +230,12 @@ class UserData():
 
     def read_in_users(self):
         """Read this file to get user data."""
-        lastline = ""
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
                 if self.header in line and not "header" in line:
                     strlist = self.__decrypt_data(line[len(self.header)+1:])
                     return self.__to_list(strlist)
-                else:
-                    lastline = line
-            with open(self.__filename, 'a') as file:
-                if len(lastline) > 1:
-                    file.write("\n{0}".format(data.header))
-                else:
-                    file.write(data.header)
             return []
-
     def write_out_users(self, users):
         """Save user data to this file."""
         code = ""
@@ -402,3 +393,4 @@ if __name__ == '__main__':
         login.mainloop()
 
 #The next line holds data. It's not a comment don't move the text!!!
+#Live SteamBoost data do not edit!:
