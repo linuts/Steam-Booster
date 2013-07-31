@@ -16,7 +16,8 @@
     See project home page at: <https://github.com/linuts/SteamBooster>
 '''
 
-from tkinter import *
+from tkinter import Tk, Frame, Entry, Button, Label, LabelFrame, \
+  TOP, BOTTOM, LEFT, BOTH, FALSE
 from re import findall as re_findall
 from urllib.request import urlopen
 from os import system as os_system
@@ -25,15 +26,15 @@ from subprocess import Popen
 from platform import system
 from time import sleep
 
-class UpdateScript():
+class UpdateScript(): # <= This class wipes all changes made to the script!!!
     """
     Try to update this script using "github.com".
     NO DATA IS SENT TO THE SERVER TO DO THIS...
     """
 
-    def __init__(self, branch="master"):
+    def __init__(self, use_branch="master"):
         """Start a new update thread."""
-        self.__branch = branch
+        self.__branch = use_branch
         if not self.__branch == None:
             Thread(target=self.__try_update).start()
 
@@ -47,7 +48,7 @@ class UpdateScript():
             wanfile = self.__get_web_file(url.format(self.__branch))
             if self.__needs_update(lanfile, wanfile):
                 self.__do_update(wanfile)
-        except Exception:
+        except Exception(): # Need to fix this.
             pass
 
     def __get_this_file(self, file):
@@ -67,8 +68,10 @@ class UpdateScript():
     def __needs_update(self, lan, wan):
         """Check if update is available on github."""
         if len(lan) == len(wan):
+            data = UserData()
             for index in range(len(wan)):
-                if not lan[index] == wan[index]:
+                if not lan[index] == wan[index] or \
+                  not data.header in lan[index]:
                     return True
             return False
         else:
@@ -107,7 +110,7 @@ class SteamData():
                 line = line.replace('\n', '')
                 line = line.replace("\t\t", ' ')
                 line = line.replace('\t', '')
-                line = line.replace('\\','/') # to fix windows file locations
+                line = line.replace('\\','/')
                 line = line.strip()
                 if line in ['{', '}']:
                     data += [line]
@@ -175,7 +178,7 @@ class UserData():
     def __init__(self):
         """Translate Steam userid to username."""
         self.__filename = __file__.split('\\')[-1]
-        self.__header = "#Live SteamBoost data do not edit!:"
+        self.header = "#Live data do not edit!:"
         steam = SteamData()
         self.__steamusers = steam("/config/loginusers.vdf")
 
@@ -227,21 +230,30 @@ class UserData():
 
     def read_in_users(self):
         """Read this file to get user data."""
+        lastline = ""
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
-                if self.__header in line and not "header" in line:
-                    strlist = self.__decrypt_data(line[len(self.__header)+1:])
+                if self.header in line and not "header" in line:
+                    strlist = self.__decrypt_data(line[len(self.header)+1:])
                     return self.__to_list(strlist)
+                else:
+                    lastline = line
+            with open(self.__filename, 'a') as file:
+                if len(lastline) > 1:
+                    file.write("\n{0}".format(data.header))
+                else:
+                    file.write(data.header)
+            return []
 
     def write_out_users(self, users):
         """Save user data to this file."""
         code = ""
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
-                if not self.__header in line or "header" in line:
+                if not self.header in line or "header" in line:
                     code += line
                 else:
-                    code += '{0} '.format(self.__header)
+                    code += '{0} '.format(self.header)
                     break
         with open(self.__filename, 'w') as file:
             file.write(code + self.__encrypt_data(self.__to_string(users)))
@@ -252,7 +264,7 @@ class GUISetup(Tk):
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
         super().__init__()
-        self.title("SteamBoost user setup")
+        self.title("Steam Boost setup")
         note = "Leave the password box empty to skip a user."
         self.__header = Label(self, bg="lightblue", text=note)
         self.resizable(width=FALSE, height=FALSE)
@@ -380,7 +392,7 @@ class GUILogin(Tk):
         self.withdraw()
 
 if __name__ == '__main__':
-    UpdateScript() # set arg one to None to stop updates.
+    UpdateScript() # <= set arg one to None to stop updates.
     data = UserData()
     if data.users_changed():
         GUISetup(data.read_in_users())
@@ -389,5 +401,4 @@ if __name__ == '__main__':
         login.users = data.ids_to_names(data.read_in_users())
         login.mainloop()
 
-#The next line holds data it's not a comment do not edit or move the text!!!
-#Live SteamBoost data do not edit!:
+#The next line holds data. It's not a comment don't move the text!!!
