@@ -90,7 +90,10 @@ class UpdateScript(): # <= This class wipes all changes made to the script!!!
         data.write_out_users(savedata)
 
 class SteamData():
-    """Reads .ACF and .VDF Steam config files."""
+    """
+    Reads .ACF and .VDF Steam config files.
+    Can find Steam theme colors as well.
+    """
 
     def __init__(self):
         """Find Steam install path."""
@@ -171,6 +174,22 @@ class SteamData():
             elif not type(data[index]) == str:
                 holder.update(data[index])
         return newdata
+
+    @staticmethod
+    def set_theme(control):
+        """Steam theme data for GUI's."""
+        if type(control) == Button or type(control) == Label:
+            control["fg"] = "#FFFFFF"
+            control["bg"] = "#575552"
+        elif type(control) == LabelFrame:
+            control["fg"] = "#A2A09C"
+            control["bg"] = "#383635"
+        elif type(control) == Entry:
+            control["fg"] = "#FFFFFF"
+            control["bg"] = "#A2A09C"
+        else:
+            control["bg"] = "#383635"
+        return control
 
 class UserData():
     """Reads and writes user data from this file."""
@@ -257,8 +276,10 @@ class GUISetup(Tk):
         """Setup and run GUIsetup"""
         super().__init__()
         self.title("Steam Boost setup")
+        self = SteamData.set_theme(self)
         note = "Leave the password box empty to skip a user."
-        self.__header = Label(self, bg="lightblue", text=note)
+        header = Label(self, text=note)
+        self.__header = SteamData.set_theme(header)
         self.resizable(width=FALSE, height=FALSE)
         self.__new_user_frames = []
         self.__known_users = known_users
@@ -274,6 +295,7 @@ class GUISetup(Tk):
         for user in list(steam_users.keys()):
             self.__add_user_frame(user, steam_users[user]["accountname"])
         btn = Button(self, text="Done", bg="lightgray", command=self.__save_users)
+        btn = SteamData.set_theme(btn)
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
     def __add_user_frame(self, userid, username):
@@ -289,7 +311,9 @@ class GUISetup(Tk):
         if oldindex == -1:
             holder = LabelFrame(self, text="{0}'s password".format(username))
             self.__new_users.append([userid, Entry(holder, width=35, show='*')])
+            self.__new_users[-1][1] = SteamData.set_theme(self.__new_users[-1][1])
             self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
+            holder = SteamData.set_theme(holder)
             holder.pack(padx=10, pady=5)
         else:
             self.__new_users.append(self.__known_users[oldindex])
@@ -297,16 +321,22 @@ class GUISetup(Tk):
     def __save_users(self):
         """Save new user data to this file."""
         out = []
+        passcount = 0
         for user in self.__new_users:
             if type(user[1]) == str:
                 out.append([user[0], user[1]])
+                passcount += 1
             elif len(user[1].get()) > 0:
                 out.append([user[0], user[1].get()])
+                passcount += 1
             else:
                 out.append([user[0], "[NULL]"])
-        data = UserData()
-        data.write_out_users(out)
-        self.quit()
+        if passcount > 0:
+            data = UserData()
+            data.write_out_users(out)
+            self.quit()
+        else:
+            self.__header["text"] = "Steam Booster needs at least one user to work!"
 
 class GUILogin(Tk):
     """Try to login as a Steam user."""
@@ -315,23 +345,27 @@ class GUILogin(Tk):
         """Create users list."""
         super().__init__()
         self.users = []
+        self = SteamData.set_theme(self)
+        holder = LabelFrame(self, text="Login As")
+        self.__holder = SteamData.set_theme(holder)
 
     def mainloop(self):
         """
         If only one user is in the list auto login as that user.
         If more than one user is in the list show the GUI list.
         """
-        self.title("Login")
+        self.title("Steam Booser")
         userslen = len(self.users)
         passcount = 0
         for user in self.users:
             if not user[1] == "[NULL]":
                 passcount += 1
-        if len(self.users) == 0:
+        if len(self.users) == 0 or passcount == 0:
             self.quit()
         elif len(self.users) == 1 or passcount == 1:
             self.__run_steam(0)
         else:
+            self.__holder.pack(padx=10, pady=10)
             self.__make_buttons()
         super().mainloop()
 
@@ -342,9 +376,10 @@ class GUILogin(Tk):
         for user in self.users:
             if not user[1] == "[NULL]":
                 count += 1
-                button = Button(self, text=user[0],
+                button = Button(self.__holder, text=user[0],
                   command=lambda index=count: self.__run_steam(index))
-                button.pack(side=LEFT)
+                button = SteamData.set_theme(button)
+                button.pack(side=LEFT, padx=5, pady=5)
         self.resizable(width=FALSE, height=FALSE)
 
     def __run_steam(self, count):
