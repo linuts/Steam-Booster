@@ -97,7 +97,12 @@ class SteamData():
 
     def __init__(self):
         """Find Steam install path."""
-        self.__steampath = "C:/Program Files (x86)/Steam" # fix for os other then windows
+        if system() == "Windows":
+            self.__steampath = "C:/Program Files (x86)/Steam"
+        elif system() == "Apple":
+            self.__steampath = "Library/Application Support/Steam"
+        elif system() == "Linux":
+            self.__steampath = ""
 
     def __call__(self, filepath):
         """Returns the Steam data nodes."""
@@ -252,6 +257,7 @@ class UserData():
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
                 if self.header in line and not "header" in line:
+                    line = line.strip()
                     strlist = self.__decrypt_data(line[len(self.header)+1:])
                     return self.__to_list(strlist)
             return []
@@ -334,7 +340,8 @@ class GUISetup(Tk):
         if passcount > 0:
             data = UserData()
             data.write_out_users(out)
-            self.quit()
+            self.withdraw()
+            self.quit() # Can't tell if this works.
         else:
             self.__header["text"] = "Steam Booster needs at least one user to work!"
 
@@ -403,7 +410,11 @@ class GUILogin(Tk):
 
         def apple():
             """Kill Apple Steam process and restart as the selected user."""
-            pass # place holder
+            os_system("killall steam")
+            sleep(3)
+            cmd = "open /Applications/Steam.app --args -fullscreen -login {0} {1}"
+            cmd = cmd.format(self.users[count][0], self.users[count][1])
+            os_system(cmd)
 
         def select_os():
             """Detect os and start steam"""
@@ -423,10 +434,9 @@ if __name__ == '__main__':
     data = UserData()
     if data.users_changed():
         GUISetup(data.read_in_users())
-    else:
-        login = GUILogin()
-        login.users = data.ids_to_names(data.read_in_users())
-        login.mainloop()
+    login = GUILogin()
+    login.users = data.ids_to_names(data.read_in_users())
+    login.mainloop()
 
 #The next line holds data. It's not a comment don't move the text!!!
 #Live data do not edit!:
