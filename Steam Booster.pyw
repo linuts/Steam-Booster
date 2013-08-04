@@ -1,17 +1,17 @@
 '''
                     Copyright (C) 2013 Alexander B. Libby
 
-    This SteamBooster is free software: you can redistribute it and/or modify
+    SteamBooster is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation version 3.
 
-    This program is distributed in the hope that it will be useful,
+    SteamBooster is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License for more details.
+    GNU General Public License Version 3 for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
+    along with SteamBooster. If not, see <http://www.gnu.org/licenses/>.
 
     See project home page at: <https://github.com/linuts/SteamBooster>
 '''
@@ -480,29 +480,32 @@ class GUILogin(Tk):
 
         def windows():
             """Kill Windows Steam process and restart as the selected user."""
-            self.__debug("Open As Windows.")
+            self.__debug("Trying to stop Steam process...")
             Popen("wmic process where name='Steam.exe' delete")
             sleep(3)
             cmd = "C:\Program Files (x86)\Steam\Steam.exe -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
+            self.__debug("Starting Steam for Windows.")
             Popen(cmd)
 
         def linux():
             """Kill Linux Steam process and restart as the selected user."""
-            self.__debug("Open As Linux.")
+            self.__debug("Trying to stop Steam process...")
             os_system("pkill steam")
             sleep(3)
             cmd = "steam -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
+            self.__debug("Starting Steam for Linux.")
             os_system(cmd)
 
         def apple():
             """Kill Apple Steam process and restart as the selected user."""
-            self.__debug("Open As Apple.")
+            self.__debug("Trying to stop Steam process...")
             os_system("killall steam")
             sleep(3)
             cmd = "open /Applications/Steam.app --args -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
+            self.__debug("Starting Steam for Apple.")
             os_system(cmd)
 
         def select_os():
