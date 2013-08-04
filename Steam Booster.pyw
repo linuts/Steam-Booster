@@ -25,6 +25,7 @@ from threading import Thread
 from subprocess import Popen
 from platform import system
 from time import sleep
+from getpass import getuser
 
 class UpdateScript(): # <= This class wipes all changes made to the script!!!
     """
@@ -99,10 +100,10 @@ class SteamData():
         """Find Steam install path."""
         if system() == "Windows":
             self.__steampath = "C:/Program Files (x86)/Steam"
-        elif system() == "Apple":
-            self.__steampath = "Library/Application Support/Steam"
+        elif system() == "Darwin":
+            self.__steampath = "/Users/{0}/Library/Application Support/Steam".format(getuser())
         elif system() == "Linux":
-            self.__steampath = ""
+            self.__steampath = "/home/{0}/.steam/steam".format(getuser())
 
     def __call__(self, filepath):
         """Returns the Steam data nodes."""
@@ -223,11 +224,47 @@ class UserData():
 
     def __encrypt_data(self, users):
         """Encrypt the data in this file."""
-        return users # place holder
+        bindata = ""
+        for letter in users:
+            part = bin(ord(letter))[2:]
+            while not len(part) == 8:
+                part = "0" + part
+            bindata += part
+        dataout = ""
+        if bindata[0] == "0":
+            start = '-'
+        else:
+            start = '+'
+        while len(bindata) > 0:
+            for index in reversed(range(1, 9)):
+                same = ('0'*index, '1'*index)
+                if bindata[:index] in same:
+                    dataout += str(index)
+                    bindata = bindata[index:]
+                    break
+        return start + dataout
 
     def __decrypt_data(self, users):
         """Decrypt the data in this file."""
-        return users # place holder
+        bindata = ""
+        if len(users) > 0:
+            if users[0] == '-':
+                value = '0'
+            else:
+                value = '1'
+            users = users[1:]
+            for num in users:
+                bindata += (value * int(num))
+                if value == '0':
+                    value = '1'
+                else:
+                    value = '0'
+            dataout = ""
+            while len(bindata) > 0:
+                dataout += chr(int(bindata[:8], 2))
+                bindata = bindata[8:]
+            return dataout
+        return ""
 
     def users_changed(self):
         """See if new users have logged into Steam."""
@@ -281,6 +318,8 @@ class GUISetup(Tk):
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
         super().__init__()
+        self.protocol("WM_DELETE_WINDOW", self.__did_exit)
+        self.didexit = False
         self.title("Steam Boost setup")
         self = SteamData.set_theme(self)
         note = "Leave the password box empty to skip a user."
@@ -292,6 +331,12 @@ class GUISetup(Tk):
         self.__new_users = []
         self.__base_window()
         super().mainloop()
+
+    def __did_exit(self):
+        """If user clicked the X button."""
+        self.didexit = True
+        self.withdraw()
+        self.quit()
 
     def __base_window(self):
         """Create the GUI window frame."""
@@ -420,23 +465,25 @@ class GUILogin(Tk):
             """Detect os and start steam"""
             if system() == "Windows":
                 windows()
+            elif system() == "Darwin":
+                apple()
             elif system() == "Linux":
                 linux()
-            elif system() == "Apple":
-                apple()
             self.quit()
 
         Thread(target=select_os).start()
         self.withdraw()
 
 if __name__ == '__main__':
-    UpdateScript() # <= set arg one to None to stop updates.
     data = UserData()
-    if data.users_changed():
-        GUISetup(data.read_in_users())
-    login = GUILogin()
-    login.users = data.ids_to_names(data.read_in_users())
-    login.mainloop()
+    needsetup = data.users_changed()
+    if needsetup:
+        setup = GUISetup(data.read_in_users())
+    if (needsetup and not setup.didexit) or (not needsetup):
+        UpdateScript() # <= set arg one to None to stop updates.
+        login = GUILogin()
+        login.users = data.ids_to_names(data.read_in_users())
+        login.mainloop()
 
 #The next line holds data. It's not a comment don't move the text!!!
 #Live data do not edit!:
