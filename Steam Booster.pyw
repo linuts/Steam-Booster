@@ -26,8 +26,29 @@ from subprocess import Popen
 from platform import system
 from time import sleep
 from getpass import getuser
+from datetime import datetime
 
-class UpdateScript(): # <= This class wipes all changes made to the script!!!
+class DebugScript():
+    """Use -O arg in the command line to turn debug mode on."""
+
+    def __init__(self, header):
+        """Checks if debug is on and makes a file header."""
+        self.__logfile = __file__.split('\\')[-1] + ".log"
+        self.__header = header + " ~ "
+        if not __debug__:
+            self.__debug = True
+        else:
+            self.__debug = False
+
+    def __call__(self, event):
+        """Add a new log entry to the log file."""
+        if self.__debug:
+            now = datetime.now()
+            now = now.strftime("\n%Y-%m-%d/%H:%M:%S @ ")
+            with open(self.__logfile, 'a') as file:
+                file.write(now+self.__header+event)
+
+class UpdateScript():
     """
     Try to update this script using "github.com".
     NO DATA IS SENT TO THE SERVER TO DO THIS...
@@ -35,6 +56,7 @@ class UpdateScript(): # <= This class wipes all changes made to the script!!!
 
     def __init__(self, use_branch="master"):
         """Start a new update thread."""
+        self.__debug = DebugScript("Update Script")
         self.__branch = use_branch
         if not self.__branch == None:
             Thread(target=self.__try_update).start()
@@ -48,9 +70,12 @@ class UpdateScript(): # <= This class wipes all changes made to the script!!!
             lanfile = self.__get_this_file(__file__.split('\\')[-1])
             wanfile = self.__get_web_file(url.format(self.__branch))
             if self.__needs_update(lanfile, wanfile):
+                self.__debug("Needs an update!")
                 self.__do_update(wanfile)
-        except Exception: # Need to fix this.
-            pass
+            else:
+                self.__debug("No Updates.")
+        except Exception as error:
+            self.__debug("Error: "+error)
 
     def __get_this_file(self, file):
         """Load this script as a list of lines."""
@@ -89,6 +114,7 @@ class UpdateScript(): # <= This class wipes all changes made to the script!!!
             for line in wan:
                 file.write(line)
         data.write_out_users(savedata)
+        self.__debug("Did update.")
 
 class SteamData():
     """
@@ -98,6 +124,8 @@ class SteamData():
 
     def __init__(self):
         """Find Steam install path."""
+        self.__debug = DebugScript("Steam Data")
+        self.__debug("Using {0} script.".format(system()))
         if system() == "Windows":
             self.__steampath = "C:/Program Files (x86)/Steam"
         elif system() == "Darwin":
@@ -113,6 +141,7 @@ class SteamData():
 
     def __read_in_file(self, filepath):
         """Read the raw file into a list."""
+        self.__debug("Loading Steam data.")
         data = []
         with open(filepath, 'r') as file:
             for line in file:
@@ -202,7 +231,9 @@ class UserData():
 
     def __init__(self):
         """Translate Steam userid to username."""
+        self.__debug = DebugScript("User Data")
         self.__filename = __file__.split('\\')[-1]
+        self.__debug("Users saved in: {0}".format(self.__filename))
         self.header = "#Live data do not edit!:"
         steam = SteamData()
         self.__steamusers = steam("/config/loginusers.vdf")
@@ -280,6 +311,7 @@ class UserData():
             if allin == len(steamid):
                 return False
         else:
+            self.__debug("Users changed!")
             return True
 
     def ids_to_names(self, userids):
@@ -291,6 +323,7 @@ class UserData():
 
     def read_in_users(self):
         """Read this file to get user data."""
+        self.__debug("Loading Users.")
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
                 if self.header in line and not "header" in line:
@@ -301,6 +334,7 @@ class UserData():
 
     def write_out_users(self, users):
         """Save user data to this file."""
+        self.__debug("Saving Users.")
         code = ""
         with open(self.__filename, 'r') as file:
             for line in file.readlines():
@@ -318,6 +352,7 @@ class GUISetup(Tk):
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
         super().__init__()
+        self.__debug = DebugScript("GUI Setup")
         self.protocol("WM_DELETE_WINDOW", self.__did_exit)
         self.didexit = False
         self.title("Steam Boost setup")
@@ -334,6 +369,7 @@ class GUISetup(Tk):
 
     def __did_exit(self):
         """If user clicked the X button."""
+        self.__debug("User Quit The Setup!")
         self.didexit = True
         self.withdraw()
         self.quit()
@@ -375,12 +411,15 @@ class GUISetup(Tk):
         passcount = 0
         for user in self.__new_users:
             if type(user[1]) == str:
+                self.__debug("Found old User: {0}".format(user[0]))
                 out.append([user[0], user[1]])
                 passcount += 1
             elif len(user[1].get()) > 0:
+                self.__debug("Adding new User: {0}".format(user[0]))
                 out.append([user[0], user[1].get()])
                 passcount += 1
             else:
+                self.__debug("Not Adding User: {0}".format(user[0]))
                 out.append([user[0], "[NULL]"])
         if passcount > 0:
             data = UserData()
@@ -396,6 +435,7 @@ class GUILogin(Tk):
     def __init__(self):
         """Create users list."""
         super().__init__()
+        self.__debug = DebugScript("GUI Login")
         self.users = []
         self = SteamData.set_theme(self)
         holder = LabelFrame(self, text="Login As")
@@ -411,6 +451,7 @@ class GUILogin(Tk):
         passcount = 0
         for user in self.users:
             if not user[1] == "[NULL]":
+                self.__debug("Found User: {0}".format(user[0]))
                 passcount += 1
         if len(self.users) == 0 or passcount == 0:
             self.quit()
@@ -439,6 +480,7 @@ class GUILogin(Tk):
 
         def windows():
             """Kill Windows Steam process and restart as the selected user."""
+            self.__debug("Open As Windows.")
             Popen("wmic process where name='Steam.exe' delete")
             sleep(3)
             cmd = "C:\Program Files (x86)\Steam\Steam.exe -fullscreen -login {0} {1}"
@@ -447,6 +489,7 @@ class GUILogin(Tk):
 
         def linux():
             """Kill Linux Steam process and restart as the selected user."""
+            self.__debug("Open As Linux.")
             os_system("pkill steam")
             sleep(3)
             cmd = "steam -fullscreen -login {0} {1}"
@@ -455,6 +498,7 @@ class GUILogin(Tk):
 
         def apple():
             """Kill Apple Steam process and restart as the selected user."""
+            self.__debug("Open As Apple.")
             os_system("killall steam")
             sleep(3)
             cmd = "open /Applications/Steam.app --args -fullscreen -login {0} {1}"
