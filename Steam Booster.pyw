@@ -356,21 +356,26 @@ class GUISetup(Tk):
 
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
+        #window setup
         super().__init__()
         self.__debug = DebugScript("GUI Setup")
         self.title("Steam Boost setup")
+        self.resizable(width=FALSE, height=FALSE)
         SteamData.get_icon_for(self)
         SteamData.set_theme(self)
-        note = "Leave the password box empty to skip a user."
-        header = Label(self, text=note)
-        self.__header = header
-        SteamData.set_theme(self.__header)
-        self.resizable(width=FALSE, height=FALSE)
+        #exit window setup
         self.protocol("WM_DELETE_WINDOW", self.__did_exit)
         self.didexit = False
+        #note setup
+        note = "Leave the password box empty to skip a user."
+        self.__header = Label(self, text=note)
+        SteamData.set_theme(self.__header)
+        self.__header.pack(padx=10, pady=10, side=TOP)
+        #user data
         self.__new_user_frames = []
         self.__known_users = known_users
         self.__new_users = []
+        #make window
         self.__base_window()
         super().mainloop()
 
@@ -378,17 +383,17 @@ class GUISetup(Tk):
         """If user clicked the X button."""
         self.__debug("User Quit The Setup!")
         self.didexit = True
-        self.withdraw()
-        self.quit()
+        self.destroy()
 
     def __base_window(self):
         """Create the GUI window frame."""
-        self.__header.pack(padx=10, pady=10, side=TOP)
+        #put users into the frame
         steam = SteamData()
         steam_users = steam("/config/loginusers.vdf")
         for user in list(steam_users.keys()):
             self.__add_user_frame(user, steam_users[user]["accountname"])
-        btn = Button(self, text="Done", bg="lightgray", command=self.__save_users)
+        #make done button
+        btn = Button(self, text="Done", command=self.__save_users)
         SteamData.set_theme(btn)
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
@@ -403,12 +408,14 @@ class GUISetup(Tk):
             else:
                 count += 1
         if oldindex == -1:
+            #make frame
             holder = LabelFrame(self, text="{0}'s password".format(username))
+            SteamData.set_theme(holder)
+            holder.pack(padx=10, pady=5)
+            #put user in frame
             self.__new_users.append([userid, Entry(holder, width=35, show='*')])
             SteamData.set_theme(self.__new_users[-1][1])
             self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
-            SteamData.set_theme(holder)
-            holder.pack(padx=10, pady=5)
         else:
             self.__new_users.append(self.__known_users[oldindex])
 
@@ -431,8 +438,7 @@ class GUISetup(Tk):
         if passcount > 0:
             data = UserData()
             data.write_out_users(out)
-            self.withdraw()
-            self.quit() # Can't tell if this works.
+            self.destroy()
         else:
             self.__header["text"] = "Steam Booster needs at least one user to work!"
 
@@ -441,15 +447,16 @@ class GUILogin(Tk):
 
     def __init__(self):
         """Create users list."""
+        #window setup
         super().__init__()
         self.__debug = DebugScript("GUI Login")
         self.title("Steam Booser")
+        self.resizable(width=FALSE, height=FALSE)
         SteamData.get_icon_for(self)
         SteamData.set_theme(self)
-        holder = LabelFrame(self, text="Login As")
-        self.__holder = holder
+        #user layout setup
+        self.__holder = LabelFrame(self, text="Login As")
         SteamData.set_theme(self.__holder)
-        self.resizable(width=FALSE, height=FALSE)
         self.users = []
 
     def mainloop(self):
@@ -464,7 +471,7 @@ class GUILogin(Tk):
                 self.__debug("Found User: {0}".format(user[0]))
                 passcount += 1
         if len(self.users) == 0 or passcount == 0:
-            self.quit()
+            self.destroy()
         elif len(self.users) == 1 or passcount == 1:
             self.__run_steam(0)
         else:
@@ -522,7 +529,7 @@ class GUILogin(Tk):
                 apple()
             elif system() == "Linux":
                 linux()
-            self.quit()
+            self.destroy()
 
         Thread(target=select_os).start()
         self.withdraw()
