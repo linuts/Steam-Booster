@@ -1,17 +1,17 @@
 '''
                     Copyright (C) 2013 Alexander B. Libby
 
-    SteamBooster is free software: you can redistribute it and/or modify
+    This SteamBooster is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation version 3.
 
-    SteamBooster is distributed in the hope that it will be useful,
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License Version 3 for more details.
+    GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with SteamBooster. If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
 
     See project home page at: <https://github.com/linuts/SteamBooster>
 '''
@@ -224,7 +224,12 @@ class SteamData():
             control["bg"] = "#A2A09C"
         else:
             control["bg"] = "#383635"
-        return control
+
+    @staticmethod
+    def get_icon_for(window):
+        steam = SteamData()
+        path = r"{0}\steam\backup\english\steam.ico"
+        window.iconbitmap(default=path.format(steam.__steampath))
 
 class UserData():
     """Reads and writes user data from this file."""
@@ -353,14 +358,16 @@ class GUISetup(Tk):
         """Setup and run GUIsetup"""
         super().__init__()
         self.__debug = DebugScript("GUI Setup")
-        self.protocol("WM_DELETE_WINDOW", self.__did_exit)
-        self.didexit = False
         self.title("Steam Boost setup")
-        self = SteamData.set_theme(self)
+        SteamData.get_icon_for(self)
+        SteamData.set_theme(self)
         note = "Leave the password box empty to skip a user."
         header = Label(self, text=note)
-        self.__header = SteamData.set_theme(header)
+        self.__header = header
+        SteamData.set_theme(self.__header)
         self.resizable(width=FALSE, height=FALSE)
+        self.protocol("WM_DELETE_WINDOW", self.__did_exit)
+        self.didexit = False
         self.__new_user_frames = []
         self.__known_users = known_users
         self.__new_users = []
@@ -382,7 +389,7 @@ class GUISetup(Tk):
         for user in list(steam_users.keys()):
             self.__add_user_frame(user, steam_users[user]["accountname"])
         btn = Button(self, text="Done", bg="lightgray", command=self.__save_users)
-        btn = SteamData.set_theme(btn)
+        SteamData.set_theme(btn)
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
     def __add_user_frame(self, userid, username):
@@ -398,9 +405,9 @@ class GUISetup(Tk):
         if oldindex == -1:
             holder = LabelFrame(self, text="{0}'s password".format(username))
             self.__new_users.append([userid, Entry(holder, width=35, show='*')])
-            self.__new_users[-1][1] = SteamData.set_theme(self.__new_users[-1][1])
+            SteamData.set_theme(self.__new_users[-1][1])
             self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
-            holder = SteamData.set_theme(holder)
+            SteamData.set_theme(holder)
             holder.pack(padx=10, pady=5)
         else:
             self.__new_users.append(self.__known_users[oldindex])
@@ -436,17 +443,20 @@ class GUILogin(Tk):
         """Create users list."""
         super().__init__()
         self.__debug = DebugScript("GUI Login")
-        self.users = []
-        self = SteamData.set_theme(self)
+        self.title("Steam Booser")
+        SteamData.get_icon_for(self)
+        SteamData.set_theme(self)
         holder = LabelFrame(self, text="Login As")
-        self.__holder = SteamData.set_theme(holder)
+        self.__holder = holder
+        SteamData.set_theme(self.__holder)
+        self.resizable(width=FALSE, height=FALSE)
+        self.users = []
 
     def mainloop(self):
         """
         If only one user is in the list auto login as that user.
         If more than one user is in the list show the GUI list.
         """
-        self.title("Steam Booser")
         userslen = len(self.users)
         passcount = 0
         for user in self.users:
@@ -471,41 +481,37 @@ class GUILogin(Tk):
                 count += 1
                 button = Button(self.__holder, text=user[0],
                   command=lambda index=count: self.__run_steam(index))
-                button = SteamData.set_theme(button)
+                SteamData.set_theme(button)
                 button.pack(side=LEFT, padx=5, pady=5)
-        self.resizable(width=FALSE, height=FALSE)
 
     def __run_steam(self, count):
         """Select action based on OS."""
 
         def windows():
             """Kill Windows Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Windows.")
             Popen("wmic process where name='Steam.exe' delete")
             sleep(3)
             cmd = "C:\Program Files (x86)\Steam\Steam.exe -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Windows.")
             Popen(cmd)
 
         def linux():
             """Kill Linux Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Linux.")
             os_system("pkill steam")
             sleep(3)
             cmd = "steam -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Linux.")
             os_system(cmd)
 
         def apple():
             """Kill Apple Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Apple.")
             os_system("killall steam")
             sleep(3)
             cmd = "open /Applications/Steam.app --args -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Apple.")
             os_system(cmd)
 
         def select_os():
@@ -527,7 +533,7 @@ if __name__ == '__main__':
     if needsetup:
         setup = GUISetup(data.read_in_users())
     if (needsetup and not setup.didexit) or (not needsetup):
-        UpdateScript() # <= set arg one to None to stop updates.
+        UpdateScript("unstable") # <= set arg one to None to stop updates.
         login = GUILogin()
         login.users = data.ids_to_names(data.read_in_users())
         login.mainloop()
