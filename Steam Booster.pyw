@@ -17,7 +17,7 @@
 '''
 
 from tkinter import Tk, Frame, Entry, Button, Label, LabelFrame, \
-  TOP, BOTTOM, LEFT, BOTH, FALSE
+  END, TOP, BOTTOM, LEFT, BOTH, FALSE
 from re import findall as re_findall
 from urllib.request import urlopen
 from os import system as os_system
@@ -54,7 +54,7 @@ class UpdateScript():
     NO DATA IS SENT TO THE SERVER TO DO THIS...
     """
 
-    def __init__(self, use_branch="master"):
+    def __init__(self, use_branch=None):
         """Start a new update thread."""
         self.__debug = DebugScript("Update Script")
         self.__branch = use_branch
@@ -213,23 +213,23 @@ class SteamData():
     @staticmethod
     def set_theme(control):
         """Steam theme data for GUI's."""
-        if type(control) == Button or type(control) == Label:
+        if type(control) == Button:
             control["fg"] = "#FFFFFF"
             control["bg"] = "#575552"
-        elif type(control) == LabelFrame:
+        elif type(control) == LabelFrame or type(control) == Label:
             control["fg"] = "#A2A09C"
             control["bg"] = "#383635"
         elif type(control) == Entry:
             control["fg"] = "#FFFFFF"
             control["bg"] = "#A2A09C"
-        else:
+        elif isinstance(control, Tk):
             control["bg"] = "#383635"
-
-    @staticmethod
-    def get_icon_for(window):
-        steam = SteamData()
-        path = r"{0}\steam\backup\english\steam.ico"
-        window.iconbitmap(default=path.format(steam.__steampath))
+            control.resizable(width=FALSE, height=FALSE)
+            if system() == "Windows":
+                steam = SteamData()
+                path = r"{0}\steam.ico"
+                path = path.format(steam.__steampath)
+                control.iconbitmap(default=path)
 
 class UserData():
     """Reads and writes user data from this file."""
@@ -356,21 +356,26 @@ class GUISetup(Tk):
 
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
+
+        def did_exit():
+            """If user clicked the X button."""
+            self.__debug("User Quit The Setup!")
+            self.didexit = True
+            self.destroy()
+
         #window setup
         super().__init__()
         self.__debug = DebugScript("GUI Setup")
         self.title("Steam Boost setup")
-        self.resizable(width=FALSE, height=FALSE)
-        SteamData.get_icon_for(self)
         SteamData.set_theme(self)
         #exit window setup
-        self.protocol("WM_DELETE_WINDOW", self.__did_exit)
+        self.protocol("WM_DELETE_WINDOW", did_exit)
         self.didexit = False
         #note setup
         note = "Leave the password box empty to skip a user."
         self.__header = Label(self, text=note)
         SteamData.set_theme(self.__header)
-        self.__header.pack(padx=10, pady=10, side=TOP)
+        self.__header.pack(padx=10, pady=5, side=TOP)
         #user data
         self.__new_user_frames = []
         self.__known_users = known_users
@@ -378,12 +383,6 @@ class GUISetup(Tk):
         #make window
         self.__base_window()
         super().mainloop()
-
-    def __did_exit(self):
-        """If user clicked the X button."""
-        self.__debug("User Quit The Setup!")
-        self.didexit = True
-        self.destroy()
 
     def __base_window(self):
         """Create the GUI window frame."""
@@ -394,11 +393,18 @@ class GUISetup(Tk):
             self.__add_user_frame(user, steam_users[user]["accountname"])
         #make done button
         btn = Button(self, text="Done", command=self.__save_users)
+        self.bind("<KeyRelease-Return>", self.__save_users)
         SteamData.set_theme(btn)
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
     def __add_user_frame(self, userid, username):
         """Add a New user frame."""
+
+        def get_clipboard(event):
+            """Put the contents  of the clipboard into an Entry widget."""
+            event.widget.delete(0, END)
+            event.widget.insert(0, self.clipboard_get())
+
         oldindex = -1
         count = 0
         for old_user in self.__known_users:
@@ -414,12 +420,13 @@ class GUISetup(Tk):
             holder.pack(padx=10, pady=5)
             #put user in frame
             self.__new_users.append([userid, Entry(holder, width=35, show='*')])
+            self.__new_users[-1][1].bind( "<Button-3>", get_clipboard)
             SteamData.set_theme(self.__new_users[-1][1])
             self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
         else:
             self.__new_users.append(self.__known_users[oldindex])
 
-    def __save_users(self):
+    def __save_users(self, event=None):
         """Save new user data to this file."""
         out = []
         passcount = 0
@@ -451,8 +458,6 @@ class GUILogin(Tk):
         super().__init__()
         self.__debug = DebugScript("GUI Login")
         self.title("Steam Booser")
-        self.resizable(width=FALSE, height=FALSE)
-        SteamData.get_icon_for(self)
         SteamData.set_theme(self)
         #user layout setup
         self.__holder = LabelFrame(self, text="Login As")
@@ -540,7 +545,7 @@ if __name__ == '__main__':
     if needsetup:
         setup = GUISetup(data.read_in_users())
     if (needsetup and not setup.didexit) or (not needsetup):
-        UpdateScript("unstable") # <= set arg one to None to stop updates.
+        UpdateScript("unstable")
         login = GUILogin()
         login.users = data.ids_to_names(data.read_in_users())
         login.mainloop()
