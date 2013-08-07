@@ -160,7 +160,7 @@ class SteamData():
                     if len(newline) == 1:
                         data += newline
                     else:
-                        data += [{newline[0]:newline[1]}]
+                        data += [{newline[0].upper():newline[1]}]
         return data
 
     def __make_profile(self, data):
@@ -323,7 +323,7 @@ class UserData():
         """Turn userids into user names."""
         users = []
         for userid in userids:
-            users.append([self.__steamusers[userid[0]]["accountname"], userid[1]])
+            users.append([self.__steamusers[userid[0]]["ACCOUNTNAME"], userid[1]])
         return users
 
     def read_in_users(self):
@@ -346,9 +346,9 @@ class UserData():
                 if not self.header in line or "header" in line:
                     code += line
                 else:
-                    code += '{0} '.format(self.header)
                     break
         with open(self.__filename, 'w') as file:
+            code += '{0} '.format(self.header)
             file.write(code + self.__encrypt_data(self.__to_string(users)))
 
 class GUISetup(Tk):
@@ -390,7 +390,7 @@ class GUISetup(Tk):
         steam = SteamData()
         steam_users = steam("/config/loginusers.vdf")
         for user in list(steam_users.keys()):
-            self.__add_user_frame(user, steam_users[user]["accountname"])
+            self.__add_user_frame(user, steam_users[user]["ACCOUNTNAME"])
         #make done button
         btn = Button(self, text="Done", command=self.__save_users)
         self.bind("<KeyRelease-Return>", self.__save_users)
@@ -469,16 +469,17 @@ class GUILogin(Tk):
         If only one user is in the list auto login as that user.
         If more than one user is in the list show the GUI list.
         """
-        userslen = len(self.users)
         passcount = 0
-        for user in self.users:
+        lastpass = None
+        for index, user in enumerate(self.users):
             if not user[1] == "[NULL]":
                 self.__debug("Found User: {0}".format(user[0]))
+                lastpass = index
                 passcount += 1
-        if len(self.users) == 0 or passcount == 0:
+        if passcount == 0:
             self.destroy()
-        elif len(self.users) == 1 or passcount == 1:
-            self.__run_steam(0)
+        elif passcount == 1:
+            self.__run_steam(lastpass)
         else:
             self.__holder.pack(padx=10, pady=10)
             self.__make_buttons()
