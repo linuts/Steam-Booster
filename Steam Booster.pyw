@@ -1,23 +1,19 @@
 '''
                     Copyright (C) 2013 Alexander B. Libby
-
-    SteamBooster is free software: you can redistribute it and/or modify
+    This SteamBooster is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation version 3.
-
-    SteamBooster is distributed in the hope that it will be useful,
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License Version 3 for more details.
-
+    GNU General Public License for more details.
     You should have received a copy of the GNU General Public License
-    along with SteamBooster. If not, see <http://www.gnu.org/licenses/>.
-
+    along with this program. If not, see <http://www.gnu.org/licenses/gpl.txt>.
     See project home page at: <https://github.com/linuts/SteamBooster>
 '''
 
 from tkinter import Tk, Frame, Entry, Button, Label, LabelFrame, \
-  TOP, BOTTOM, LEFT, BOTH, FALSE
+  END, TOP, BOTTOM, LEFT, BOTH, FALSE
 from re import findall as re_findall
 from urllib.request import urlopen
 from os import system as os_system
@@ -54,7 +50,7 @@ class UpdateScript():
     NO DATA IS SENT TO THE SERVER TO DO THIS...
     """
 
-    def __init__(self, use_branch="master"):
+    def __init__(self, use_branch=None):
         """Start a new update thread."""
         self.__debug = DebugScript("Update Script")
         self.__branch = use_branch
@@ -160,7 +156,7 @@ class SteamData():
                     if len(newline) == 1:
                         data += newline
                     else:
-                        data += [{newline[0]:newline[1]}]
+                        data += [{newline[0].upper():newline[1]}]
         return data
 
     def __make_profile(self, data):
@@ -216,18 +212,23 @@ class SteamData():
     @staticmethod
     def set_theme(control):
         """Steam theme data for GUI's."""
-        if type(control) == Button or type(control) == Label:
+        if type(control) == Button:
             control["fg"] = "#FFFFFF"
             control["bg"] = "#575552"
-        elif type(control) == LabelFrame:
+        elif type(control) == LabelFrame or type(control) == Label:
             control["fg"] = "#A2A09C"
             control["bg"] = "#383635"
         elif type(control) == Entry:
             control["fg"] = "#FFFFFF"
             control["bg"] = "#A2A09C"
-        else:
+        elif isinstance(control, Tk):
             control["bg"] = "#383635"
-        return control
+            control.resizable(width=FALSE, height=FALSE)
+            if system() == "Windows":
+                steam = SteamData()
+                path = r"{0}\public\steam_tray.ico"
+                path = path.format(steam.__steampath)
+                control.iconbitmap(default=path)
 
 class UserData():
     """Reads and writes user data from this file."""
@@ -321,7 +322,7 @@ class UserData():
         """Turn userids into user names."""
         users = []
         for userid in userids:
-            users.append([self.__steamusers[userid[0]]["AccountName"], userid[1]])
+            users.append([self.__steamusers[userid[0]]["ACCOUNTNAME"], userid[1]])
         return users
 
     def read_in_users(self):
@@ -344,9 +345,9 @@ class UserData():
                 if not self.header in line or "header" in line:
                     code += line
                 else:
-                    code += '{0} '.format(self.header)
                     break
         with open(self.__filename, 'w') as file:
+            code += '{0} '.format(self.header)
             file.write(code + self.__encrypt_data(self.__to_string(users)))
 
 class GUISetup(Tk):
@@ -354,42 +355,55 @@ class GUISetup(Tk):
 
     def __init__(self, known_users):
         """Setup and run GUIsetup"""
+
+        def did_exit():
+            """If user clicked the X button."""
+            self.__debug("User Quit The Setup!")
+            self.didexit = True
+            self.destroy()
+
+        #window setup
         super().__init__()
         self.__debug = DebugScript("GUI Setup")
-        self.protocol("WM_DELETE_WINDOW", self.__did_exit)
-        self.didexit = False
         self.title("Steam Boost setup")
-        self = SteamData.set_theme(self)
+        SteamData.set_theme(self)
+        #exit window setup
+        self.protocol("WM_DELETE_WINDOW", did_exit)
+        self.didexit = False
+        #note setup
         note = "Leave the password box empty to skip a user."
-        header = Label(self, text=note)
-        self.__header = SteamData.set_theme(header)
-        self.resizable(width=FALSE, height=FALSE)
+        self.__header = Label(self, text=note)
+        SteamData.set_theme(self.__header)
+        self.__header.pack(padx=10, pady=5, side=TOP)
+        #user data
         self.__new_user_frames = []
         self.__known_users = known_users
         self.__new_users = []
+        #make window
         self.__base_window()
         super().mainloop()
 
-    def __did_exit(self):
-        """If user clicked the X button."""
-        self.__debug("User Quit The Setup!")
-        self.didexit = True
-        self.withdraw()
-        self.quit()
-
     def __base_window(self):
         """Create the GUI window frame."""
-        self.__header.pack(padx=10, pady=10, side=TOP)
+        #put users into the frame
         steam = SteamData()
         steam_users = steam("/config/loginusers.vdf")
         for user in list(steam_users.keys()):
-            self.__add_user_frame(user, steam_users[user]["accountname"])
-        btn = Button(self, text="Done", bg="lightgray", command=self.__save_users)
-        btn = SteamData.set_theme(btn)
+            self.__add_user_frame(user, steam_users[user]["ACCOUNTNAME"])
+        #make done button
+        btn = Button(self, text="Done", command=self.__save_users)
+        self.bind("<KeyRelease-Return>", self.__save_users)
+        SteamData.set_theme(btn)
         btn.pack(padx=10, pady=10, fill=BOTH, side=BOTTOM)
 
     def __add_user_frame(self, userid, username):
         """Add a New user frame."""
+
+        def get_clipboard(event):
+            """Put the contents  of the clipboard into an Entry widget."""
+            event.widget.delete(0, END)
+            event.widget.insert(0, self.clipboard_get())
+
         oldindex = -1
         count = 0
         for old_user in self.__known_users:
@@ -399,16 +413,19 @@ class GUISetup(Tk):
             else:
                 count += 1
         if oldindex == -1:
+            #make frame
             holder = LabelFrame(self, text="{0}'s password".format(username))
-            self.__new_users.append([userid, Entry(holder, width=35, show='*')])
-            self.__new_users[-1][1] = SteamData.set_theme(self.__new_users[-1][1])
-            self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
-            holder = SteamData.set_theme(holder)
+            SteamData.set_theme(holder)
             holder.pack(padx=10, pady=5)
+            #put user in frame
+            self.__new_users.append([userid, Entry(holder, width=35, show='*')])
+            self.__new_users[-1][1].bind( "<Button-3>", get_clipboard)
+            SteamData.set_theme(self.__new_users[-1][1])
+            self.__new_users[-1][1].pack(padx=10, pady=10, side=LEFT)
         else:
             self.__new_users.append(self.__known_users[oldindex])
 
-    def __save_users(self):
+    def __save_users(self, event=None):
         """Save new user data to this file."""
         out = []
         passcount = 0
@@ -427,8 +444,7 @@ class GUISetup(Tk):
         if passcount > 0:
             data = UserData()
             data.write_out_users(out)
-            self.withdraw()
-            self.quit() # Can't tell if this works.
+            self.destroy()
         else:
             self.__header["text"] = "Steam Booster needs at least one user to work!"
 
@@ -437,29 +453,32 @@ class GUILogin(Tk):
 
     def __init__(self):
         """Create users list."""
+        #window setup
         super().__init__()
         self.__debug = DebugScript("GUI Login")
+        self.title("Steam Booser")
+        SteamData.set_theme(self)
+        #user layout setup
+        self.__holder = LabelFrame(self, text="Login As")
+        SteamData.set_theme(self.__holder)
         self.users = []
-        self = SteamData.set_theme(self)
-        holder = LabelFrame(self, text="Login As")
-        self.__holder = SteamData.set_theme(holder)
 
     def mainloop(self):
         """
         If only one user is in the list auto login as that user.
         If more than one user is in the list show the GUI list.
         """
-        self.title("Steam Booser")
-        userslen = len(self.users)
         passcount = 0
-        for user in self.users:
+        lastpass = None
+        for index, user in enumerate(self.users):
             if not user[1] == "[NULL]":
                 self.__debug("Found User: {0}".format(user[0]))
+                lastpass = index
                 passcount += 1
-        if len(self.users) == 0 or passcount == 0:
-            self.quit()
-        elif len(self.users) == 1 or passcount == 1:
-            self.__run_steam(0)
+        if passcount == 0:
+            self.destroy()
+        elif passcount == 1:
+            self.__run_steam(lastpass)
         else:
             self.__holder.pack(padx=10, pady=10)
             self.__make_buttons()
@@ -474,42 +493,38 @@ class GUILogin(Tk):
                 count += 1
                 button = Button(self.__holder, text=user[0],
                   command=lambda index=count: self.__run_steam(index))
-                button = SteamData.set_theme(button)
+                SteamData.set_theme(button)
                 button.pack(side=LEFT, padx=5, pady=5)
-        self.resizable(width=FALSE, height=FALSE)
 
     def __run_steam(self, count):
         """Select action based on OS."""
 
         def windows():
             """Kill Windows Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Windows.")
             Popen("wmic process where name='Steam.exe' delete")
             sleep(3)
             steamPath = SteamData().get_path()
             cmd = steamPath + "\Steam.exe -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Windows.")
             Popen(cmd)
 
         def linux():
             """Kill Linux Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Linux.")
             os_system("pkill steam")
             sleep(3)
             cmd = "steam -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Linux.")
             os_system(cmd)
 
         def apple():
             """Kill Apple Steam process and restart as the selected user."""
-            self.__debug("Trying to stop Steam process...")
+            self.__debug("Open As Apple.")
             os_system("killall steam")
             sleep(3)
             cmd = "open /Applications/Steam.app --args -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
-            self.__debug("Starting Steam for Apple.")
             os_system(cmd)
 
         def select_os():
@@ -520,7 +535,7 @@ class GUILogin(Tk):
                 apple()
             elif system() == "Linux":
                 linux()
-            self.quit()
+            self.destroy()
 
         Thread(target=select_os).start()
         self.withdraw()
@@ -531,7 +546,7 @@ if __name__ == '__main__':
     if needsetup:
         setup = GUISetup(data.read_in_users())
     if (needsetup and not setup.didexit) or (not needsetup):
-        UpdateScript() # <= set arg one to None to stop updates.
+        UpdateScript()
         login = GUILogin()
         login.users = data.ids_to_names(data.read_in_users())
         login.mainloop()
