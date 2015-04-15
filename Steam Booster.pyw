@@ -210,6 +210,9 @@ class SteamData():
                 holder.update(data[index])
         return newdata
 
+    def get_path(self):
+        return self.__steampath
+
     @staticmethod
     def set_theme(control):
         """Steam theme data for GUI's."""
@@ -318,7 +321,7 @@ class UserData():
         """Turn userids into user names."""
         users = []
         for userid in userids:
-            users.append([self.__steamusers[userid[0]]["accountname"], userid[1]])
+            users.append([self.__steamusers[userid[0]]["AccountName"], userid[1]])
         return users
 
     def read_in_users(self):
@@ -483,7 +486,8 @@ class GUILogin(Tk):
             self.__debug("Trying to stop Steam process...")
             Popen("wmic process where name='Steam.exe' delete")
             sleep(3)
-            cmd = "C:\Program Files (x86)\Steam\Steam.exe -fullscreen -login {0} {1}"
+            steamPath = SteamData().get_path()
+            cmd = steamPath + "\Steam.exe -fullscreen -login {0} {1}"
             cmd = cmd.format(self.users[count][0], self.users[count][1])
             self.__debug("Starting Steam for Windows.")
             Popen(cmd)
