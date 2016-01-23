@@ -545,7 +545,7 @@ if __name__ == '__main__':
     needsetup = data.users_changed()
     if needsetup:
         setup = GUISetup(data.read_in_users())
-    if (needsetup and not setup.didexit) or (not needsetup):
+    if not needsetup or not setup.didexit:
         UpdateScript()
         login = GUILogin()
         login.users = data.ids_to_names(data.read_in_users())
